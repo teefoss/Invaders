@@ -1,0 +1,19 @@
+
+LOG
+
+12/9/23		Added some temporary assets
+
+
+NOTES
+
+
+- Original Dimensions -
+
+Resolution: 224x256
+
+
+- Alien Types -
+
+"Squid": 	8x8 	Row 0
+"Antennae":	11x8 	Rows 1-2
+"Fatso":	
