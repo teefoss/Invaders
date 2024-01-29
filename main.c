@@ -5,8 +5,48 @@
 #define GAME_WIDTH 224
 #define GAME_HEIGHT 256
 #define PLAYER_WIDTH 13
+#define SPRITE_HEIGHT 8
+
+#define FLEET_ROWS 5
+#define FLEET_COLS 11
+#define FLEET_ROW_HEIGHT (SPRITE_HEIGHT * 2)
+#define FLEET_COL_WIDTH 16
+#define MAX_ALIENS (FLEET_ROWS * FLEET_COLS)
 
 const SDL_Rect player_src_rect = { 0, 32, PLAYER_WIDTH, 8 };
+const int alien_widths[] = { 8, 11, 12 };
+
+typedef enum {
+    ALIEN_SQUID,
+    ALIEN_CRAB,
+    ALIEN_FATSO
+} AlienType;
+
+typedef struct {
+    AlienType type;
+
+    // Alien's location
+    int x;
+    int y;
+} Alien;
+
+
+void MovePlayer(const Uint8 * key_state, SDL_Rect * player)
+{
+    if ( key_state[SDL_SCANCODE_LEFT] ) {
+        player->x -= 1;
+        if ( player->x < 0 ) {
+            player->x = 0;
+        }
+    }
+
+    if ( key_state[SDL_SCANCODE_RIGHT] ) {
+        player->x += 1;
+        if ( player->x + player->w >= GAME_WIDTH ) {
+            player->x = GAME_WIDTH - player->w;
+        }
+    }
+}
 
 int main(void)
 {
@@ -59,7 +99,26 @@ int main(void)
         .h = 8
     };
 
+    Alien fleet[MAX_ALIENS];
 
+    // Init. alien fleet.
+    for ( int y = 0; y < FLEET_ROWS; y++ ) {
+        for ( int x = 0; x < FLEET_COLS; x++ ) {
+
+            int i = y * FLEET_COLS + x; // 2D coord to 1D array index
+            fleet[i].x = 16 + (x * FLEET_COL_WIDTH);
+            fleet[i].y = 16 + (y * FLEET_ROW_HEIGHT);
+
+            if ( y == 0 ) {
+                fleet[i].type = ALIEN_SQUID;
+            } else if ( y == 1 || y == 2 ) {
+                fleet[i].type = ALIEN_CRAB;
+            } else {
+                fleet[i].type = ALIEN_FATSO;
+            }
+        }
+    }
+    // TODO: assignment: how to convert from 1D to 2D coordinates?
 
     // Program
 
@@ -100,19 +159,7 @@ int main(void)
             }
         }
 
-        if ( key_state[SDL_SCANCODE_LEFT] ) {
-            player.x -= 1;
-            if ( player.x < 0 ) {
-                player.x = 0;
-            }
-        }
-
-        if ( key_state[SDL_SCANCODE_RIGHT] ) {
-            player.x += 1;
-            if ( player.x + player.w >= GAME_WIDTH ) {
-                player.x = GAME_WIDTH - player.w;
-            }
-        }
+        MovePlayer(key_state, &player);
 
         // NON-INPUT-RELATED UPDATE GAME
 
@@ -123,15 +170,23 @@ int main(void)
         SDL_SetRenderDrawColor(renderer, 16, 16, 16, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
 
-        // squid source rect: test animation
-        SDL_Rect src_rect = {
-            .x = ticks % 20 < 10 ? 0 : 16, // flip anim frame every 10 sec
-            .y = 0,
-            .w = 8,
-            .h = 8,
-        };
-        SDL_Rect dst_rect = { 10, 10, 8, 8 };
-        SDL_RenderCopy(renderer, sprite_sheet, &src_rect, &dst_rect);
+        for ( int i = 0; i < MAX_ALIENS; i++ ) {
+            SDL_Rect src_rect = {
+                .x = ticks % 20 < 10 ? 0 : 16, // flip anim frame every 10 sec
+                .y = fleet[i].type * SPRITE_HEIGHT,
+                .w = alien_widths[fleet[i].type],
+                .h = SPRITE_HEIGHT,
+            };
+
+            SDL_Rect dst_rect = {
+                fleet[i].x,
+                fleet[i].y,
+                alien_widths[fleet[i].type],
+                SPRITE_HEIGHT
+            };
+
+            SDL_RenderCopy(renderer, sprite_sheet, &src_rect, &dst_rect);
+        }
 
         SDL_RenderCopy(renderer, sprite_sheet, &player_src_rect, &player);
 

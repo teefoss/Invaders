@@ -1,9 +1,29 @@
 
+
+
+TO DO
+------------
+
+Game:
+- Alien fleet
+- Alien movement
+
+Text
+Sound
+(Menu)
+
+
+
+------------
 LOG
 
 12/9/23		Added some temporary assets
+1/29		Added arcade font
 
 
+
+
+------------
 NOTES
 
 https://www.computerarcheology.com/Arcade/SpaceInvaders/
@@ -18,4 +38,11 @@ Resolution: 224x256
 
 "Squid": 	8x8 	Row 0
 "Antennae":	11x8 	Rows 1-2
-"Fatso":	
+"Fatso":	12x8	Rows 3-4
+
+
+
+------------
+MISC
+
+Change sprite color: SDL_SetTextureColorMod
