@@ -12,6 +12,7 @@
 #define FLEET_ROW_HEIGHT (SPRITE_HEIGHT * 2)
 #define FLEET_COL_WIDTH 16
 #define MAX_ALIENS (FLEET_ROWS * FLEET_COLS)
+#define FLEET_PADDING FLEET_COL_WIDTH
 
 const SDL_Rect player_src_rect = { 0, 32, PLAYER_WIDTH, 8 };
 const int alien_widths[] = { 8, 11, 12 };
@@ -102,12 +103,13 @@ int main(void)
     Alien fleet[MAX_ALIENS];
 
     // Init. alien fleet.
+    /*
     for ( int y = 0; y < FLEET_ROWS; y++ ) {
         for ( int x = 0; x < FLEET_COLS; x++ ) {
 
             int i = y * FLEET_COLS + x; // 2D coord to 1D array index
-            fleet[i].x = 16 + (x * FLEET_COL_WIDTH);
-            fleet[i].y = 16 + (y * FLEET_ROW_HEIGHT);
+            fleet[i].x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
+            fleet[i].y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
 
             if ( y == 0 ) {
                 fleet[i].type = ALIEN_SQUID;
@@ -118,8 +120,30 @@ int main(void)
             }
         }
     }
+    */
+    
     // TODO: assignment: how to convert from 1D to 2D coordinates?
+    
+    int count = 0;
+    for ( int i = 0; i < MAX_ALIENS; i++ ) {
+        int x = i % FLEET_COLS;
+        int y = count % FLEET_ROWS;
+        if ( x == FLEET_COLS - 1 ) {
+            count++;
+        }
 
+        fleet[i].x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
+        fleet[i].y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
+        
+        if ( y == 0 ) {
+            fleet[i].type = ALIEN_SQUID;
+        } else if ( y == 1 || y == 2 ) {
+            fleet[i].type = ALIEN_CRAB;
+        } else {
+            fleet[i].type = ALIEN_FATSO;
+        }
+    }
+    
     // Program
 
     // 60 FPS
