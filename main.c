@@ -6,33 +6,57 @@
 #define GAME_HEIGHT 256
 #define PLAYER_WIDTH 13
 #define SPRITE_HEIGHT 8
+#define BULLET_WIDTH 3
 
 #define FLEET_ROWS 5
 #define FLEET_COLS 11
 #define FLEET_ROW_HEIGHT (SPRITE_HEIGHT * 2)
 #define FLEET_COL_WIDTH 16
 #define MAX_ALIENS (FLEET_ROWS * FLEET_COLS)
-#define FLEET_PADDING FLEET_COL_WIDTH
-
-const SDL_Rect player_src_rect = { 0, 32, PLAYER_WIDTH, 8 };
-const int alien_widths[] = { 8, 11, 12 };
+#define FLEET_PADDING FLEET_COL_WIDTH // TODO: factor in how far over player can go (bullet)
 
 typedef enum {
-    ALIEN_SQUID,
-    ALIEN_CRAB,
-    ALIEN_FATSO
-} AlienType;
+    ACTOR_SQUID,
+    ACTOR_CRAB,
+    ACTOR_FATSO,
+    ACTOR_UFO,
+    ACTOR_PLAYER,
+    ACTOR_PLAYER_BULLET,
+
+    NUM_ACTOR_TYPES
+} ActorType;
 
 typedef struct {
-    AlienType type;
+    ActorType type;
 
-    // Alien's location
+    // Location
     int x;
     int y;
-} Alien;
 
+    bool active;
+} Actor;
 
-void MovePlayer(const Uint8 * key_state, SDL_Rect * player)
+const SDL_Rect player_src_rect = { 0, 32, PLAYER_WIDTH, SPRITE_HEIGHT };
+const SDL_Rect player_bullet_src_rect = { 32, 32, BULLET_WIDTH, SPRITE_HEIGHT };
+
+const int actor_widths[NUM_ACTOR_TYPES] = {
+    [ACTOR_SQUID] = 8,
+    [ACTOR_CRAB] = 11,
+    [ACTOR_FATSO] = 12,
+    [ACTOR_PLAYER] = 13,
+    [ACTOR_PLAYER_BULLET] = BULLET_WIDTH,
+};
+
+Actor MakeActor(ActorType type, int x, int y)
+{
+    return (Actor){
+        .type = type,
+        .x = x,
+        .y = y,
+    };
+}
+
+void MovePlayer(const Uint8 * key_state, Actor * player)
 {
     if ( key_state[SDL_SCANCODE_LEFT] ) {
         player->x -= 1;
@@ -43,10 +67,28 @@ void MovePlayer(const Uint8 * key_state, SDL_Rect * player)
 
     if ( key_state[SDL_SCANCODE_RIGHT] ) {
         player->x += 1;
-        if ( player->x + player->w >= GAME_WIDTH ) {
-            player->x = GAME_WIDTH - player->w;
+
+        int w = actor_widths[ACTOR_PLAYER];
+        if ( player->x + w >= GAME_WIDTH ) {
+            player->x = GAME_WIDTH - w;
         }
     }
+}
+
+SDL_Rect GetDestRect(Actor * actor)
+{
+    return (SDL_Rect){
+        .x = actor->x,
+        .y = actor->y,
+        .w = actor_widths[actor->type],
+        .h = SPRITE_HEIGHT,
+    };
+}
+
+bool AreActorsOverlapping(Actor * a, Actor * b)
+{
+    // TODO: implement
+    return false;
 }
 
 int main(void)
@@ -93,54 +135,28 @@ int main(void)
 
     // Game Data:
 
-    SDL_Rect player = {
-        .x = (GAME_WIDTH - PLAYER_WIDTH) / 2, // (w1 / 2) - (w2 / 2) -> (w1 - w2) / 2
-        .y = 220,
-        .w = PLAYER_WIDTH,
-        .h = 8
-    };
-
-    Alien fleet[MAX_ALIENS];
+    Actor player = MakeActor(ACTOR_PLAYER, (GAME_WIDTH - PLAYER_WIDTH) / 2, 220);
+    Actor aliens[MAX_ALIENS];
+    Actor bullet = MakeActor(ACTOR_PLAYER_BULLET, -100, -100);
 
     // Init. alien fleet.
-    /*
-    for ( int y = 0; y < FLEET_ROWS; y++ ) {
-        for ( int x = 0; x < FLEET_COLS; x++ ) {
 
-            int i = y * FLEET_COLS + x; // 2D coord to 1D array index
-            fleet[i].x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
-            fleet[i].y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
-
-            if ( y == 0 ) {
-                fleet[i].type = ALIEN_SQUID;
-            } else if ( y == 1 || y == 2 ) {
-                fleet[i].type = ALIEN_CRAB;
-            } else {
-                fleet[i].type = ALIEN_FATSO;
-            }
-        }
-    }
-    */
-    
-    // TODO: assignment: how to convert from 1D to 2D coordinates?
-    
-    int count = 0;
     for ( int i = 0; i < MAX_ALIENS; i++ ) {
+        // 1D index (i) to 2D coords
         int x = i % FLEET_COLS;
-        int y = count % FLEET_ROWS;
-        if ( x == FLEET_COLS - 1 ) {
-            count++;
-        }
+        int y = i / FLEET_COLS;
 
-        fleet[i].x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
-        fleet[i].y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
-        
+        // Note: int i = y * FLEET_COLS + x; // 2D coord to 1D index
+
+        int actor_x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
+        int actor_y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
+
         if ( y == 0 ) {
-            fleet[i].type = ALIEN_SQUID;
+            aliens[i] = MakeActor(ACTOR_SQUID, actor_x, actor_y);
         } else if ( y == 1 || y == 2 ) {
-            fleet[i].type = ALIEN_CRAB;
+            aliens[i] = MakeActor(ACTOR_CRAB, actor_x, actor_y);
         } else {
-            fleet[i].type = ALIEN_FATSO;
+            aliens[i] = MakeActor(ACTOR_FATSO, actor_x, actor_y);
         }
     }
     
@@ -177,6 +193,15 @@ int main(void)
                     case SDLK_ESCAPE:
                         is_running = false;
                         break;
+                    case SDLK_SPACE:
+                        if ( !bullet.active ) {
+                            // center the bullet horizontally over player.
+                            // - 1 positions the bullet exactly over nozzle.
+                            bullet.x = player.x + actor_widths[ACTOR_PLAYER] / 2 - 1;
+                            bullet.y = player.y - SPRITE_HEIGHT + 2;
+                            bullet.active = true;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -187,7 +212,19 @@ int main(void)
 
         // NON-INPUT-RELATED UPDATE GAME
 
-        // ...
+        // Update player bullet:
+
+        if ( bullet.active ) {
+            bullet.y -= 2;
+
+            if ( bullet.y < -SPRITE_HEIGHT ) { // off top of screen?
+                bullet.active = false;
+            } else {
+                // everything else:
+
+                // if hits alien ... stuff
+            }
+        }
 
         // RENDER
 
@@ -196,25 +233,34 @@ int main(void)
 
         for ( int i = 0; i < MAX_ALIENS; i++ ) {
             SDL_Rect src_rect = {
-                .x = ticks % 20 < 10 ? 0 : 16, // flip anim frame every 10 sec
-                .y = fleet[i].type * SPRITE_HEIGHT,
-                .w = alien_widths[fleet[i].type],
+                .x = 0,
+                .y = aliens[i].type * SPRITE_HEIGHT,
+                .w = actor_widths[aliens[i].type],
                 .h = SPRITE_HEIGHT,
             };
 
-            SDL_Rect dst_rect = {
-                fleet[i].x,
-                fleet[i].y,
-                alien_widths[fleet[i].type],
-                SPRITE_HEIGHT
-            };
-
+            SDL_Rect dst_rect = GetDestRect(&aliens[i]);
             SDL_RenderCopy(renderer, sprite_sheet, &src_rect, &dst_rect);
         }
 
-        SDL_RenderCopy(renderer, sprite_sheet, &player_src_rect, &player);
+        // Render player:
+
+        SDL_Rect player_dst_rect = GetDestRect(&player);
+        SDL_RenderCopy(renderer, sprite_sheet, &player_src_rect, &player_dst_rect);
+
+        // Render player bullet:
+
+        if ( bullet.active ) {
+            SDL_Rect player_bullet_dst_rect = GetDestRect(&bullet);
+            SDL_RenderCopy(renderer,
+                           sprite_sheet,
+                           &player_bullet_src_rect,
+                           &player_bullet_dst_rect);
+        }
 
         SDL_RenderPresent(renderer);
+
+
 
         ticks++;
     }
