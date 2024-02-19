@@ -36,6 +36,34 @@ typedef struct {
     bool active;
 } Actor;
 
+// Describes the full movement pattern of the alien fleet.
+typedef enum {
+    DIR_RIGHT,
+    DIR_DOWN1,
+    DIR_LEFT,
+    DIR_DOWN2,
+
+    NUM_DIRECTIONS,
+} Direction;
+
+typedef struct {
+    const Uint8 * key_state;
+    bool is_running;
+    int ticks;
+
+    Actor bullet;
+    Actor player;
+
+    // Alien fleet
+    int num_aliens; // The number of alive aliens.
+    Actor aliens[MAX_ALIENS];
+    int alien_index; // The current index to update.
+    Direction direction;
+
+    SDL_Texture * sprite_sheet;
+    SDL_Renderer * renderer;
+} Game;
+
 const SDL_Rect player_src_rect = { 0, 32, PLAYER_WIDTH, SPRITE_HEIGHT };
 const SDL_Rect player_bullet_src_rect = { 32, 32, BULLET_WIDTH, SPRITE_HEIGHT };
 
@@ -113,6 +141,166 @@ bool AreActorsOverlapping(Actor * a, Actor * b)
     return false;
 }
 
+void DoGameFrame(Game * game)
+{
+    SDL_Event event;
+    while ( SDL_PollEvent(&event) ) {
+        if ( event.type == SDL_QUIT ) {
+            game->is_running = false;
+        } else if ( event.type == SDL_KEYDOWN ) {
+            switch ( event.key.keysym.sym ) {
+                case SDLK_ESCAPE:
+                    game->is_running = false;
+                    break;
+                case SDLK_SPACE:
+                    if ( !game->bullet.active ) {
+                        // center the bullet horizontally over player.
+                        // - 1 positions the bullet exactly over nozzle.
+                        game->bullet.x = game->player.x + actor_widths[ACTOR_PLAYER] / 2 - 1;
+                        game->bullet.y = game->player.y - SPRITE_HEIGHT + 2;
+                        game->bullet.active = true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    MovePlayer(game->key_state, &game->player);
+
+    // NON-INPUT-RELATED UPDATE GAME
+
+    // Update player bullet:
+
+    if ( game->bullet.active ) {
+        game->bullet.y -= 2;
+
+        if ( game->bullet.y < -SPRITE_HEIGHT ) { // off top of screen?
+            game->bullet.active = false;
+        } else {
+            // everything else:
+
+            // if hits alien ... stuff
+        }
+    }
+
+    // MOVE ONE ALIEN
+
+    // deleting aliens:
+    // int num_aliens
+    // index to dlete = 3
+    // ABCDEFGH
+    // move all indices starting at index to del + 1
+    // ABCEFGH_
+
+    Actor * alien = &game->aliens[game->alien_index];
+
+    // Move the alien.
+    switch ( game->direction ) {
+        case DIR_LEFT:
+            alien->x--;
+            break;
+        case DIR_RIGHT:
+            alien->x++;
+            break;
+        case DIR_DOWN1:
+        case DIR_DOWN2:
+            alien->y += 2;
+            break;
+        default:
+            break;
+    }
+
+    // Check if alien hit a side:
+
+    // Use full col width so aliens stay aligned.
+    int alien_right_side = alien->x + FLEET_COL_WIDTH;
+    int alien_left_side = alien->x;
+
+    // FIXME: as it is now, aliens gradually get more and more out of sync vertically.
+    if (   alien_right_side >= GAME_WIDTH || alien_left_side < 0 ) {
+        game->direction = (game->direction + 1) % NUM_DIRECTIONS;
+    }
+
+    // Move to next index.
+    game->alien_index = (game->alien_index + 1) % game->num_aliens;
+
+    // RENDER
+
+    SDL_SetRenderDrawColor(game->renderer, 16, 16, 16, SDL_ALPHA_OPAQUE);
+    SDL_RenderClear(game->renderer);
+
+    for ( int i = 0; i < MAX_ALIENS; i++ ) {
+        SDL_Rect src_rect = {
+            .x = 0,
+            .y = game->aliens[i].type * SPRITE_HEIGHT,
+            .w = actor_widths[game->aliens[i].type],
+            .h = SPRITE_HEIGHT,
+        };
+
+        SDL_Rect dst_rect = GetDestRect(&game->aliens[i]);
+        SDL_RenderCopy(game->renderer, game->sprite_sheet, &src_rect, &dst_rect);
+    }
+
+    // Render player:
+
+    SDL_Rect player_dst_rect = GetDestRect(&game->player);
+    SDL_RenderCopy(game->renderer, game->sprite_sheet, &player_src_rect, &player_dst_rect);
+
+    // Render player bullet:
+
+    if ( game->bullet.active ) {
+        SDL_Rect player_bullet_dst_rect = GetDestRect(&game->bullet);
+        SDL_RenderCopy(game->renderer,
+                       game->sprite_sheet,
+                       &player_bullet_src_rect,
+                       &player_bullet_dst_rect);
+    }
+
+    SDL_RenderPresent(game->renderer);
+
+    game->ticks++;
+}
+
+Game MakeGame(SDL_Renderer * renderer, SDL_Texture * sprite_sheet)
+{
+    Game game = {
+        .ticks = 0,
+        .is_running = true,
+        .key_state = SDL_GetKeyboardState(NULL),
+        .player = MakeActor(ACTOR_PLAYER, (GAME_WIDTH - PLAYER_WIDTH) / 2, 220),
+        .bullet = MakeActor(ACTOR_PLAYER_BULLET, -100, -100),
+        .num_aliens = MAX_ALIENS,
+        .alien_index = 0,
+        .sprite_sheet = sprite_sheet,
+        .renderer = renderer,
+    };
+
+    // Init. alien fleet.
+
+    for ( int i = 0; i < MAX_ALIENS; i++ ) {
+        // 1D index (i) to 2D coords
+        int x = i % FLEET_COLS;
+        int y = i / FLEET_COLS;
+
+        // Note: int i = y * FLEET_COLS + x; // 2D coord to 1D index
+
+        int actor_x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
+        int actor_y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
+
+        if ( y == 0 ) {
+            game.aliens[i] = MakeActor(ACTOR_SQUID, actor_x, actor_y);
+        } else if ( y == 1 || y == 2 ) {
+            game.aliens[i] = MakeActor(ACTOR_CRAB, actor_x, actor_y);
+        } else {
+            game.aliens[i] = MakeActor(ACTOR_FATSO, actor_x, actor_y);
+        }
+    }
+
+    return game;
+}
+
 int main(void)
 {
     if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
@@ -153,35 +341,8 @@ int main(void)
 
     SDL_FreeSurface(surface);
 
-    const Uint8 * key_state = SDL_GetKeyboardState(NULL);
+    Game game = MakeGame(renderer, sprite_sheet);
 
-    // Game Data:
-
-    Actor player = MakeActor(ACTOR_PLAYER, (GAME_WIDTH - PLAYER_WIDTH) / 2, 220);
-    Actor aliens[MAX_ALIENS];
-    Actor bullet = MakeActor(ACTOR_PLAYER_BULLET, -100, -100);
-
-    // Init. alien fleet.
-
-    for ( int i = 0; i < MAX_ALIENS; i++ ) {
-        // 1D index (i) to 2D coords
-        int x = i % FLEET_COLS;
-        int y = i / FLEET_COLS;
-
-        // Note: int i = y * FLEET_COLS + x; // 2D coord to 1D index
-
-        int actor_x = FLEET_PADDING + (x * FLEET_COL_WIDTH);
-        int actor_y = FLEET_PADDING + (y * FLEET_ROW_HEIGHT);
-
-        if ( y == 0 ) {
-            aliens[i] = MakeActor(ACTOR_SQUID, actor_x, actor_y);
-        } else if ( y == 1 || y == 2 ) {
-            aliens[i] = MakeActor(ACTOR_CRAB, actor_x, actor_y);
-        } else {
-            aliens[i] = MakeActor(ACTOR_FATSO, actor_x, actor_y);
-        }
-    }
-    
     // Program
 
     // 60 FPS
@@ -192,10 +353,8 @@ int main(void)
     // 60 pixels / delta_time
 
     int last = SDL_GetTicks();
-    int ticks = 0; // aka game frame number
-    bool is_running = true;
 
-    while ( is_running )
+    while ( game.is_running )
     {
         // limit frame rate to 60 FPS (frame length = 1/60 (0.016) seconds)
         int now = SDL_GetTicks();
@@ -206,85 +365,7 @@ int main(void)
         }
         last = now;
 
-        SDL_Event event;
-        while ( SDL_PollEvent(&event) ) {
-            if ( event.type == SDL_QUIT ) {
-                is_running = false;
-            } else if ( event.type == SDL_KEYDOWN ) {
-                switch ( event.key.keysym.sym ) {
-                    case SDLK_ESCAPE:
-                        is_running = false;
-                        break;
-                    case SDLK_SPACE:
-                        if ( !bullet.active ) {
-                            // center the bullet horizontally over player.
-                            // - 1 positions the bullet exactly over nozzle.
-                            bullet.x = player.x + actor_widths[ACTOR_PLAYER] / 2 - 1;
-                            bullet.y = player.y - SPRITE_HEIGHT + 2;
-                            bullet.active = true;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-
-        MovePlayer(key_state, &player);
-
-        // NON-INPUT-RELATED UPDATE GAME
-
-        // Update player bullet:
-
-        if ( bullet.active ) {
-            bullet.y -= 2;
-
-            if ( bullet.y < -SPRITE_HEIGHT ) { // off top of screen?
-                bullet.active = false;
-            } else {
-                // everything else:
-
-                // if hits alien ... stuff
-            }
-        }
-
-        // RENDER
-
-        SDL_SetRenderDrawColor(renderer, 16, 16, 16, SDL_ALPHA_OPAQUE);
-        SDL_RenderClear(renderer);
-
-        for ( int i = 0; i < MAX_ALIENS; i++ ) {
-            SDL_Rect src_rect = {
-                .x = 0,
-                .y = aliens[i].type * SPRITE_HEIGHT,
-                .w = actor_widths[aliens[i].type],
-                .h = SPRITE_HEIGHT,
-            };
-
-            SDL_Rect dst_rect = GetDestRect(&aliens[i]);
-            SDL_RenderCopy(renderer, sprite_sheet, &src_rect, &dst_rect);
-        }
-
-        // Render player:
-
-        SDL_Rect player_dst_rect = GetDestRect(&player);
-        SDL_RenderCopy(renderer, sprite_sheet, &player_src_rect, &player_dst_rect);
-
-        // Render player bullet:
-
-        if ( bullet.active ) {
-            SDL_Rect player_bullet_dst_rect = GetDestRect(&bullet);
-            SDL_RenderCopy(renderer,
-                           sprite_sheet,
-                           &player_bullet_src_rect,
-                           &player_bullet_dst_rect);
-        }
-
-        SDL_RenderPresent(renderer);
-
-
-
-        ticks++;
+        DoGameFrame(&game);
     }
 
     // Cleanup:
