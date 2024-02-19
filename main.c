@@ -88,6 +88,28 @@ SDL_Rect GetDestRect(Actor * actor)
 bool AreActorsOverlapping(Actor * a, Actor * b)
 {
     // TODO: implement
+
+    SDL_Rect actor_a = {
+        .x = a->x,
+        .y = a->y,
+        .w = actor_widths[a->type],
+        .h = SPRITE_HEIGHT,
+    };
+    
+    SDL_Rect actor_b = {
+        .x = b->x,
+        .y = b->y,
+        .w = actor_widths[b->type],
+        .h = SPRITE_HEIGHT,
+    };
+
+    if (( actor_a.w >= actor_b.x && actor_a.h >= actor_b.y ) || 
+        ( actor_a.x <= actor_b.w && actor_a.h >= actor_b.y )) {
+        return true;
+    } else if (( actor_b.w >= actor_a.x && actor_b.h >= actor_a.y ) || 
+                ( actor_b.x <= actor_a.w && actor_b.h >= actor_a.y )) {
+        return true;
+    }
     return false;
 }
 
