@@ -5,7 +5,6 @@ TO DO
 ------------
 
 Game:
-- Refactor game data and game loop
 - Bullet collision with aliens
 - Alien movement
 

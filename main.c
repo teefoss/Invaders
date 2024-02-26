@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "text.h"
 
 #define GAME_WIDTH 224
 #define GAME_HEIGHT 256
@@ -219,7 +220,7 @@ void DoGameFrame(Game * game)
     int alien_left_side = alien->x;
 
     // FIXME: as it is now, aliens gradually get more and more out of sync vertically.
-    if (   alien_right_side >= GAME_WIDTH || alien_left_side < 0 ) {
+    if ( alien_right_side >= GAME_WIDTH || alien_left_side < 0 ) {
         game->direction = (game->direction + 1) % NUM_DIRECTIONS;
     }
 
@@ -257,6 +258,8 @@ void DoGameFrame(Game * game)
                        &player_bullet_src_rect,
                        &player_bullet_dst_rect);
     }
+
+    // Text testing region:
 
     SDL_RenderPresent(game->renderer);
 
@@ -326,6 +329,8 @@ int main(void)
     }
 
     SDL_RenderSetLogicalSize(renderer, GAME_WIDTH, GAME_HEIGHT);
+
+    LoadText(renderer);
 
     SDL_Surface * surface = SDL_LoadBMP("invaders.bmp");
     if ( surface == NULL ) {
