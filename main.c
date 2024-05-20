@@ -311,6 +311,16 @@ Game MakeGame(SDL_Renderer * renderer, SDL_Texture * sprite_sheet)
 
     return game;
 }
+/***       New! 10.03.24         ***/
+typedef struct {
+    int x;
+    int y;
+    int h;
+    int w;
+}Square;
+
+bool geej_AreRectsOverlapping(SDL_Rect *, SDL_Rect *);
+/***                             ***/
 
 int main(void)
 {
@@ -380,4 +390,28 @@ int main(void)
 
         DoGameFrame(&game);
     }
+}
+
+bool geej_AreRectsOverlapping(SDL_Rect *a, SDL_Rect *b) {
+    Square a_square = {
+        .x = a->x,
+        .y = a->y,
+        .w = a->x + a->w,
+        .h =  a->y + a->h,
+    };
+
+    Square b_square = {
+        .x = b->x,
+        .y = b->y,
+        .w = b->x + b->w,
+        .h = b->y + b->h,
+    };
+
+    if ( (a_square.w > b_square.x && a_square.h > b_square.y) 
+        && (a_square.x < b_square.w && a_square.h > b_square.y) 
+        && (a_square.y < b_square.h && a_square.y < b_square.h) 
+        ){
+        return false;
+    }
+    return true;
 }
