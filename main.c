@@ -259,7 +259,15 @@ void DoGameFrame(Game * game)
                        &player_bullet_dst_rect);
     }
 
+
     // Text testing region:
+
+    int score = 80085;
+    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+    DrawString(game->renderer, 0, 0, "Player 1: %d", score);
+
+//    SDL_SetRenderDrawColor(game->renderer, red.r, red.g, red.b, 255);
+//    DrawChar(game->renderer, 'A', 0, 0);
 
     SDL_RenderPresent(game->renderer);
 
@@ -372,11 +380,4 @@ int main(void)
 
         DoGameFrame(&game);
     }
-
-    // Cleanup:
-
-    SDL_DestroyTexture(sprite_sheet);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
 }

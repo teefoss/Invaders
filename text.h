@@ -12,6 +12,7 @@
 
 void LoadText(SDL_Renderer * renderer);
 void Test(SDL_Renderer * renderer);
-void DrawChar(SDL_Renderer * renderer, char ascii, int color24, int x, int y);
+void DrawChar(SDL_Renderer * renderer, char ascii, int x, int y);
+void DrawString(SDL_Renderer * renderer, int x, int y, const char * format, ...);
 
 #endif /* text_h */
